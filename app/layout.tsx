@@ -1,3 +1,8 @@
+// 🐝 Mock DOMMatrix so the server build doesn't crash during prerendering
+if (typeof window === 'undefined') {
+  (global as any).DOMMatrix = class DOMMatrix {};
+}
+
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
