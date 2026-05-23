@@ -1,18 +1,19 @@
 @import "tailwindcss";
 
-/* 🐝 TAILWIND v4 MASTER THEME CONFIGURATION MATRIX */
+/* 🐝 1. THEME VARIABLES GO HERE (Notice the closing bracket right after!) */
 @theme {
   --animate-fade-in: fade-in 0.5s ease-out forwards;
+}
 
-  @keyframes fade-in {
-    from {
-      opacity: 0;
-      transform: translateY(4px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
+/* 🐝 2. ACTUAL KEYFRAMES GO OUTSIDE THE THEME BLOCK */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
