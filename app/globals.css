@@ -1,27 +1,12 @@
-@import "tailwindcss";
-
-/* 🐝 1. THEME VARIABLES GO HERE (Notice the closing bracket right after!) */
-@theme {
-  --animate-fade-in: fade-in 0.5s ease-out forwards;
-}
-
-/* 🐝 2. ACTUAL KEYFRAMES GO OUTSIDE THE THEME BLOCK */
-@keyframes fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 /* 🏛️ GLOBAL BASELINE STRUCTURAL ASSIGNMENTS */
 html,
 body {
-  background-color: #24211e; /* Deep earthy espresso background */
-  color: #ebdcb9; /* Vintage parchment/cream text */
+  background-color: #24211e;
+  color: #ebdcb9;
   font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -29,7 +14,6 @@ body {
   min-height: 100%;
 }
 
-/* Global border variant fallback utility rule */
 *,
 ::before,
 ::after {
