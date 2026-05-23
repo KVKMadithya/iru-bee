@@ -1,26 +1,42 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@layer base {
+  body {
+    background-color: #24211e; /* Deep earthy espresso background */
+    color: #ebdcb9; /* Vintage parchment/cream text */
+    font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  /* Smooth color transitions for interactive states across the whole site */
+  * {
+    border-color: #3d3731;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Custom premium scrollbar matching the antique palette */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #24211e;
+}
+::-webkit-scrollbar-thumb {
+  background: #3d3731;
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #4d463e;
+}
+
+/* 🐝 Interactive cursor companion class for auth page */
+.bee-companion {
+  pointer-events: none;
+  position: fixed;
+  z-index: 9999;
+  mix-blend-mode: normal;
+  transition: transform 0.08s ease-out;
+  will-change: transform;
 }
