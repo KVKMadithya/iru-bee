@@ -8,11 +8,8 @@ import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { ArrowLeft, Star, BookOpen, X, Heart, Compass, Upload, Plus, Sparkles, Send, ChevronLeft, ChevronRight, Search, SlidersHorizontal, Trash2 } from "lucide-react";
 
-// 1. Dynamic import for the PDF component to avoid DOMMatrix / Server errors
-const PDFViewer = dynamic(() => import('../../components/PDFViewer'), { 
-  ssr: false,
-  loading: () => <div className="text-center p-10 text-amber-400">Loading Page...</div>
-});
+// Use relative path to find your component
+const PDFViewer = dynamic(() => import('../../components/PDFViewer'), { ssr: false });
 
 export default function NovelsLibrary() {
   const router = useRouter();
@@ -20,8 +17,6 @@ export default function NovelsLibrary() {
   const [novels, setNovels] = useState<any[]>([]);
   const [filteredNovels, setFilteredNovels] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // States
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFilterCategory, setSelectedFilterCategory] = useState("all");
   const [showPublishModal, setShowPublishModal] = useState(false);
@@ -29,19 +24,14 @@ export default function NovelsLibrary() {
   const [activeReadingNovel, setActiveReadingNovel] = useState<any>(null);
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
-  
-  // Creation Form
   const [title, setTitle] = useState("");
   const [summary, setSummary] = useState("");
   const [selectedCoverFile, setSelectedCoverFile] = useState<File | null>(null);
   const [selectedPdfFile, setSelectedPdfFile] = useState<File | null>(null);
   const [publishing, setPublishing] = useState(false);
-
-  // Reviews
   const [comments, setComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState("");
   const [userRating, setUserRating] = useState(5);
-
   const libraryRef = useRef<HTMLHeadingElement | null>(null);
 
   useEffect(() => {
@@ -72,7 +62,7 @@ export default function NovelsLibrary() {
 
   const handleDeleteNovel = async () => {
     if (!selectedNovel || selectedNovel.author_id !== currentUser?.uid) return;
-    if (confirm("Permanently delete this manuscript?")) {
+    if (confirm("Delete this manuscript? Permanent action.")) {
       await deleteDoc(doc(db, "publications", selectedNovel.id));
       setSelectedNovel(null);
       fetchNovels();
@@ -123,46 +113,58 @@ export default function NovelsLibrary() {
 
   return (
     <div className="min-h-screen bg-[#24211e] text-[#ebdcb9] flex flex-col">
-      <header className="border-b border-[#3d3731] bg-[#2b2723]/80 px-6 py-4 flex justify-between sticky top-0 z-40">
-        <button onClick={() => router.push("/")} className="flex items-center gap-2 text-xs hover:text-white"><ArrowLeft className="h-4 w-4" /> Return</button>
-        <button onClick={() => setShowPublishModal(true)} className="bg-[#ebdcb9] text-[#24211e] px-4 py-2 rounded-lg text-[10px] font-bold uppercase">Publish</button>
+      <header className="border-b border-[#3d3731] bg-[#2b2723]/80 px-6 py-4 flex items-center justify-between sticky top-0 z-40">
+        <button onClick={() => router.push("/")} className="text-xs text-[#c4b28d] flex items-center gap-2 hover:text-white"><ArrowLeft className="h-4 w-4" /> Return</button>
+        <button onClick={() => setShowPublishModal(true)} className="bg-[#ebdcb9] text-[#24211e] px-4 py-2 rounded-lg text-[10px] font-bold uppercase">Publish Novel</button>
       </header>
 
-      <main className="p-10 grid grid-cols-4 gap-6">
+      {/* Hero 3D Reel */}
+      {!loading && (
+        <section className="relative w-full h-[60vh] bg-[#191715] border-b border-[#3d3731] flex items-center overflow-x-auto gap-6 px-10">
+          {novels.slice(0, 5).map((n) => (
+             <div key={n.id} onClick={() => { setSelectedNovel(n); fetchComments(n.id); }} className="w-72 flex-shrink-0 cursor-pointer">
+               <img src={n.cover_image_url} className="w-full aspect-[3/4] object-cover rounded-2xl" />
+               <h3 className="mt-2 font-serif text-lg">{n.title}</h3>
+             </div>
+          ))}
+        </section>
+      )}
+
+      {/* Library Grid */}
+      <main ref={libraryRef} className="p-10 grid grid-cols-4 gap-6">
         {filteredNovels.map((novel) => (
-          <div key={novel.id} onClick={() => { setSelectedNovel(novel); fetchComments(novel.id); }} className="bg-[#2b2723] p-4 rounded-2xl cursor-pointer hover:border-[#ebdcb9]/20 border border-[#3d3731]">
+          <div key={novel.id} onClick={() => { setSelectedNovel(novel); fetchComments(novel.id); }} className="bg-[#2b2723] p-4 rounded-2xl cursor-pointer border border-[#3d3731]">
             <img src={novel.cover_image_url} className="aspect-[3/4] object-cover rounded-lg" />
             <h4 className="mt-4 font-serif">{novel.title}</h4>
           </div>
         ))}
       </main>
 
-      {/* Modal */}
+      {/* Modal & Reader Code Remains the same as provided previously, integrated here... */}
       {selectedNovel && !activeReadingNovel && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-          <div className="bg-[#2b2723] rounded-[2rem] w-full max-w-2xl p-8 relative flex gap-6">
-            <button onClick={() => setSelectedNovel(null)} className="absolute top-4 right-4"><X /></button>
-            <img src={selectedNovel.cover_image_url} className="w-40 object-cover rounded-lg" />
-            <div className="flex-1">
-              <h2 className="text-2xl font-serif">{selectedNovel.title}</h2>
-              <p className="text-sm my-4">{selectedNovel.summary}</p>
-              <div className="flex gap-2">
-                <button onClick={() => setActiveReadingNovel(selectedNovel)} className="bg-[#ebdcb9] text-[#24211e] px-6 py-2 rounded-lg font-bold">Read</button>
-                {currentUser?.uid === selectedNovel.author_id && (
-                  <button onClick={handleDeleteNovel} className="bg-red-900/50 text-red-200 px-4 py-2 rounded-lg"><Trash2 className="h-4 w-4" /></button>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
+         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+           <div className="bg-[#2b2723] rounded-3xl w-full max-w-2xl p-8 relative flex gap-6">
+             <button onClick={() => setSelectedNovel(null)} className="absolute top-4 right-4"><X /></button>
+             <img src={selectedNovel.cover_image_url} className="w-40 h-56 object-cover rounded-lg" />
+             <div className="flex-1">
+               <h2 className="text-2xl font-serif">{selectedNovel.title}</h2>
+               <p className="text-sm my-4">{selectedNovel.summary}</p>
+               <div className="flex gap-2">
+                 <button onClick={() => setActiveReadingNovel(selectedNovel)} className="bg-[#ebdcb9] text-[#24211e] px-6 py-2 rounded-lg font-bold">Read</button>
+                 {currentUser?.uid === selectedNovel.author_id && (
+                   <button onClick={handleDeleteNovel} className="bg-red-900/50 text-red-200 px-4 py-2 rounded-lg"><Trash2 className="h-4 w-4" /></button>
+                 )}
+               </div>
+             </div>
+           </div>
+         </div>
       )}
 
-      {/* Reader */}
       {activeReadingNovel && (
         <div className="fixed inset-0 bg-black z-50 flex flex-col">
-            <header className="p-4 flex justify-between"><button onClick={() => setActiveReadingNovel(null)}><X /></button> <span>Page {currentPageIndex + 1} / {totalPages}</span></header>
+            <header className="p-4 flex justify-between"><button onClick={() => setActiveReadingNovel(null)}><X /></button> <span>{currentPageIndex + 1} / {totalPages}</span></header>
             <div className="flex-1 flex justify-center items-center">
-              <div className="w-full max-w-md aspect-[1:1.4] bg-white rounded-xl overflow-hidden">
+              <div className="w-full max-w-md aspect-[1:1.4] bg-white rounded-xl overflow-hidden shadow-2xl">
                 <PDFViewer url={activeReadingNovel.pdf_url} currentPage={currentPageIndex} onTotalPages={setTotalPages} />
               </div>
             </div>
