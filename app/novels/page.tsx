@@ -5,10 +5,26 @@ import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { collection, query, where, getDocs, orderBy, addDoc, doc, updateDoc, arrayUnion, arrayRemove } from "firebase/firestore";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { ArrowLeft, Star, BookOpen, X, Heart, MessageSquare, Compass, Upload, Plus, Sparkles, Send, ChevronLeft, ChevronRight, Search, SlidersHorizontal } from "lucide-react";
-import * as pdfjsLib from "pdfjs-dist";
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+// 1. We define the exact props the PDFViewer expects so TypeScript stops throwing errors
+interface PDFViewerProps {
+  url: string;
+  currentPage: number;
+  onTotalPages: (total: number) => void;
+}
+
+// 2. We apply those props to the dynamic import
+const PDFViewer = dynamic<PDFViewerProps>(() => import('@/components/PDFViewer'), { 
+  ssr: false,
+  loading: () => (
+    <div className="text-center space-y-3 p-10">
+      <div className="h-5 w-5 border-2 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto" />
+      <p className="font-serif text-xs text-black/40 italic">Decrypting Page Vectors...</p>
+    </div>
+  )
+});
 
 export default function NovelsLibrary() {
   const router = useRouter();
@@ -26,10 +42,9 @@ export default function NovelsLibrary() {
   const [selectedNovel, setSelectedNovel] = useState<any>(null);
   const [activeReadingNovel, setActiveReadingNovel] = useState<any>(null);
 
-  // PDF Parser Render Engine States
-  const [pdfPages, setPdfPages] = useState<string[]>([]);
+  // Updated PDF Engine States
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
-  const [renderingPages, setRenderingPages] = useState(false);
+  const [totalPages, setTotalPages] = useState(0);
 
   // Novel Creation Form States
   const [title, setTitle] = useState("");
@@ -54,12 +69,11 @@ export default function NovelsLibrary() {
     return () => unsubscribe();
   }, []);
 
+  // Reset page counter when opening or closing a novel
   useEffect(() => {
-    if (activeReadingNovel?.pdf_url) {
-      renderPdfToImageArray(activeReadingNovel.pdf_url);
-    } else {
-      setPdfPages([]);
+    if (!activeReadingNovel) {
       setCurrentPageIndex(0);
+      setTotalPages(0);
     }
   }, [activeReadingNovel]);
 
@@ -118,36 +132,6 @@ export default function NovelsLibrary() {
 
   const scrollToLibrary = () => {
     libraryRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  const renderPdfToImageArray = async (url: string) => {
-    setRenderingPages(true);
-    try {
-      const loadingTask = pdfjsLib.getDocument(url);
-      const pdf = await loadingTask.promise;
-      const extractedPages: string[] = [];
-
-      for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const viewport = page.getViewport({ scale: 1.5 });
-        
-        const canvas = document.createElement("canvas");
-        const context = canvas.getContext("2d");
-        canvas.height = viewport.height;
-        canvas.width = viewport.width;
-
-        if (context) {
-          await page.render({ canvasContext: context, viewport: viewport, canvas: canvas }).promise;
-          extractedPages.push(canvas.toDataURL("image/jpeg", 0.85));
-        }
-      }
-      setPdfPages(extractedPages);
-    } catch (err) {
-      console.error("Error streaming and rendering text components from target PDF:", err);
-      alert("Failed to build digital page displays for this file.");
-    } finally {
-      setRenderingPages(false);
-    }
   };
 
   const uploadToCloudinary = async (file: File): Promise<string> => {
@@ -248,7 +232,7 @@ export default function NovelsLibrary() {
   };
 
   const pageFlipForward = () => {
-    if (currentPageIndex < pdfPages.length - 1) setCurrentPageIndex(prev => prev + 1);
+    if (currentPageIndex < totalPages - 1) setCurrentPageIndex(prev => prev + 1);
   };
   const pageFlipBackward = () => {
     if (currentPageIndex > 0) setCurrentPageIndex(prev => prev - 1);
@@ -276,16 +260,14 @@ export default function NovelsLibrary() {
             <span className="font-serif text-xs uppercase tracking-widest text-[#c4b28d]/60">Immersive Master Showcases</span>
           </div>
 
-          {/* 3D Transform Slide Chamber Layout */}
           <div className="flex gap-10 overflow-x-auto px-[15vw] py-10 scrollbar-none snap-x snap-mandatory items-center h-[70vh]">
-            {novels.slice(0, 5).map((novel, index) => (
+            {novels.slice(0, 5).map((novel) => (
               <div 
                 key={`3d-reel-${novel.id}`}
                 onClick={() => handleNovelSelection(novel)}
                 className="group relative flex-shrink-0 w-[70vw] sm:w-[450px] aspect-[3/4] rounded-[2rem] overflow-hidden shadow-[0_30px_70px_rgba(0,0,0,0.8)] border border-[#4d443c]/30 snap-center cursor-pointer transition-all duration-700 ease-out origin-center hover:scale-[1.03] bg-[#2b2723]"
                 style={{ transform: "perspective(1200px) rotateY(0deg)" }}
               >
-                {/* eslint-disable-next-html-element-img */}
                 <img src={novel.cover_image_url} alt={novel.title} className="w-full h-full object-cover transition-transform duration-700 scale-100 group-hover:scale-105" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent p-8 flex flex-col justify-end space-y-2">
                   <span className="text-[9px] font-sans text-amber-400 font-bold uppercase tracking-widest bg-amber-400/10 border border-amber-400/20 px-2.5 py-1 rounded-md self-start">Premium Manuscript</span>
@@ -296,7 +278,6 @@ export default function NovelsLibrary() {
             ))}
           </div>
 
-          {/* Intercept Scroll Down Pointer Hint Callout */}
           <div onClick={scrollToLibrary} className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-1 cursor-pointer group select-none animate-bounce">
             <span className="text-[9px] font-sans tracking-[0.3em] uppercase text-[#c4b28d]/40 group-hover:text-[#ebdcb9]">Scroll Down to Library</span>
             <ChevronRight className="h-4 w-4 text-[#c4b28d]/30 group-hover:text-[#ebdcb9] rotate-90 stroke-[1.5]" />
@@ -307,7 +288,6 @@ export default function NovelsLibrary() {
       {/* 🏛️ CORE LIBRARY DISPLAY AND SEARCH STRUCTURE */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-6 md:p-10 space-y-8">
         
-        {/* Dynamic Multi-Filter Search Stack Row Anchor */}
         <div ref={libraryRef} className="bg-[#2b2723] border border-[#3d3731] rounded-3xl p-4 flex flex-col md:flex-row gap-4 items-center justify-between shadow-xl">
           <div className="relative w-full md:flex-1">
             <Search className="absolute left-4 top-3.5 h-4 w-4 text-[#c4b28d]/40" />
@@ -355,7 +335,6 @@ export default function NovelsLibrary() {
               >
                 <div className="space-y-4">
                   <div className="relative aspect-[3/4] rounded-xl overflow-hidden bg-[#1e1b19] border border-[#3d3731]">
-                    {/* eslint-disable-next-html-element-img */}
                     <img src={novel.cover_image_url} alt={novel.title} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500 scale-100 group-hover:scale-103" />
                     <button 
                       onClick={(e) => handleLikeToggle(novel, e)}
@@ -381,31 +360,25 @@ export default function NovelsLibrary() {
         )}
       </main>
 
-      {/* SPLIT SCREEN PREVIEW OVERLAY MODAL (Explicit desktop clipping solution) */}
+      {/* SPLIT SCREEN PREVIEW OVERLAY MODAL */}
       {selectedNovel && !activeReadingNovel && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
           <div className="bg-[#2b2723] border border-[#3d3731] rounded-[2rem] w-full max-w-4xl overflow-hidden shadow-2xl relative flex flex-col md:flex-row h-auto max-h-[90vh] md:max-h-[85vh]">
             
             <button onClick={() => setSelectedNovel(null)} className="absolute top-4 right-4 h-8 w-8 bg-[#1e1b19]/80 backdrop-blur-xs border border-[#3d3731] rounded-full flex items-center justify-center text-[#c4b28d] hover:text-white transition-all cursor-pointer z-10"><X className="h-4 w-4" /></button>
 
-            {/* Left Column Aspect Frame Wrapper */}
             <div className="w-full md:w-1/2 bg-[#1e1b19] flex items-center justify-center relative p-6 border-b md:border-b-0 md:border-r border-[#3d3731]">
               <div className="relative aspect-[3/4] w-full max-w-[280px] flex items-center justify-center shadow-2xl rounded-xl overflow-hidden border border-[#3d3731]">
-                {/* eslint-disable-next-html-element-img */}
                 <img src={selectedNovel.cover_image_url} alt={selectedNovel.title} className="w-full h-full object-cover animate-fade-in" />
               </div>
             </div>
 
-            {/* Right Interactive Information Stream Drawer (Explicit dynamic fix) */}
             <div className="w-full md:w-1/2 p-6 md:p-8 flex flex-col h-[55vh] md:h-[85vh] justify-between overflow-hidden">
-              
-              {/* Inner Scrollable Body Shield */}
               <div className="space-y-6 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-[#3d3731] scrollbar-track-transparent flex-1">
                 <div className="space-y-1">
                   <span className="text-[8px] tracking-widest font-sans uppercase font-medium text-amber-400/70 border border-amber-500/20 bg-amber-500/5 px-2.5 py-0.5 rounded-full inline-block">Manuscript Core</span>
                   <h2 className="font-serif text-2xl text-white tracking-wide pt-1">{selectedNovel.title}</h2>
                   
-                  {/* Dynamic Author Profile Dynamic Routing Anchor Trigger */}
                   <p className="text-xs font-sans text-[#c4b28d]/60">
                     Authored by{" "}
                     <button 
@@ -427,7 +400,6 @@ export default function NovelsLibrary() {
                   <p className="text-xs font-sans text-[#c4b28d]/80 leading-relaxed bg-[#1e1b19]/30 border border-[#3d3731]/40 p-3 rounded-xl">{selectedNovel.summary}</p>
                 </div>
 
-                {/* Annotation Notation Thread Logs */}
                 <div className="space-y-3 pt-2">
                   <h4 className="text-[9px] font-sans uppercase tracking-widest text-[#c4b28d]/40 font-bold">Reader Critique Notes ({comments.length})</h4>
                   <div className="space-y-2.5 max-h-40 overflow-y-auto pr-1">
@@ -448,7 +420,6 @@ export default function NovelsLibrary() {
                 </div>
               </div>
 
-              {/* Interaction Form Input Trays (Locked to lower bounds layout path) */}
               <div className="pt-4 border-t border-[#3d3731] bg-[#2b2723] shrink-0 space-y-3 mt-4">
                 {currentUser && (
                   <form onSubmit={handleAddComment} className="flex gap-2 items-center">
@@ -483,7 +454,7 @@ export default function NovelsLibrary() {
               <X className="h-4 w-4" /> Close Manuscript Frame
             </button>
             <div className="text-center font-serif text-sm tracking-wide text-[#dfb86c]">
-              {activeReadingNovel.title} <span className="text-white/20 font-sans text-xs px-2">|</span> <span className="text-white/40 text-xs font-sans">Page {currentPageIndex + 1} of {pdfPages.length || "..."}</span>
+              {activeReadingNovel.title} <span className="text-white/20 font-sans text-xs px-2">|</span> <span className="text-white/40 text-xs font-sans">Page {currentPageIndex + 1} of {totalPages || "..."}</span>
             </div>
             <div className="w-32 hidden sm:block" />
           </header>
@@ -491,32 +462,23 @@ export default function NovelsLibrary() {
           <div className="flex-1 w-full flex items-center justify-center p-4 md:p-8 relative">
             <button 
               onClick={pageFlipBackward}
-              disabled={currentPageIndex === 0 || renderingPages}
+              disabled={currentPageIndex === 0}
               className="absolute left-6 z-20 h-12 w-12 rounded-full border border-white/5 bg-white/5 hover:bg-white/10 text-white flex items-center justify-center transition-all disabled:opacity-5 cursor-pointer disabled:cursor-not-allowed"
             >
               <ChevronLeft className="h-5 w-5" />
             </button>
 
-            <div className="relative w-full max-w-[440px] aspect-[1:1.5] sm:aspect-[1:1.414] bg-white rounded-2xl shadow-[0_25px_60px_-15px_rgba(0,0,0,0.9)] overflow-hidden transition-transform duration-500 flex items-center justify-center p-8 border border-black/10">
-              {renderingPages ? (
-                <div className="text-center space-y-3">
-                  <div className="h-5 w-5 border-2 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto" />
-                  <p className="font-serif text-xs text-black/40 italic">Decrypting Page Vectors...</p>
-                </div>
-              ) : pdfPages.length > 0 ? (
-                <div className="w-full h-full relative flex flex-col justify-between animate-fade-in">
-                  {/* eslint-disable-next-html-element-img */}
-                  <img src={pdfPages[currentPageIndex]} alt={`Manuscript view page source line index ${currentPageIndex}`} className="w-full h-full object-contain pointer-events-text select-text" />
-                  <div className="absolute inset-y-0 left-0 w-3 bg-gradient-to-r from-black/[0.04] to-transparent pointer-events-none" />
-                </div>
-              ) : (
-                <p className="font-serif text-xs text-black/30 italic">No clear text coordinates identified inside the selected archive wrapper file link.</p>
-              )}
+            <div className="relative w-full max-w-[440px] aspect-[1:1.5] sm:aspect-[1:1.414] bg-white rounded-2xl shadow-[0_25px_60px_-15px_rgba(0,0,0,0.9)] overflow-hidden transition-transform duration-500 flex items-center justify-center border border-black/10">
+              <PDFViewer 
+                url={activeReadingNovel.pdf_url} 
+                currentPage={currentPageIndex} 
+                onTotalPages={(total: number) => setTotalPages(total)}
+              />
             </div>
 
             <button 
               onClick={pageFlipForward}
-              disabled={currentPageIndex === pdfPages.length - 1 || renderingPages}
+              disabled={totalPages === 0 || currentPageIndex === totalPages - 1}
               className="absolute right-6 z-20 h-12 w-12 rounded-full border border-white/5 bg-white/5 hover:bg-white/10 text-white flex items-center justify-center transition-all disabled:opacity-5 cursor-pointer disabled:cursor-not-allowed"
             >
               <ChevronRight className="h-5 w-5" />
