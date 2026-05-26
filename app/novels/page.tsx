@@ -6,22 +6,15 @@ import { onAuthStateChanged } from "firebase/auth";
 import { collection, query, where, getDocs, orderBy, addDoc, doc, updateDoc, arrayUnion, arrayRemove, deleteDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
-import { ArrowLeft, Star, BookOpen, X, Heart, Compass, Upload, Plus, Sparkles, Send, ChevronLeft, ChevronRight, Search, SlidersHorizontal, Trash2 } from "lucide-react";
+import { ArrowLeft, Star, BookOpen, X, Heart, Compass, Upload, Plus, Sparkles, Send, Search, SlidersHorizontal, Trash2, ChevronRight } from "lucide-react";
 
-// 1. Define the exact props the PDFViewer expects
-interface PDFViewerProps {
-  url: string;
-  currentPage: number;
-  onTotalPages: (total: number) => void;
-}
-
-// 2. Dynamic import to completely bypass server-side Next.js crashes (DOMMatrix errors)
-const PDFViewer = dynamic<PDFViewerProps>(() => import('@/components/PDFViewer'), { 
+// 🚀 DYNAMIC IMPORT: Brings in the new 3D flipbook engine without crashing Next.js SSR
+const BookReader = dynamic(() => import('@/components/BookReader'), { 
   ssr: false,
   loading: () => (
-    <div className="text-center space-y-3 p-10 flex flex-col items-center justify-center h-full">
-      <div className="h-6 w-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
-      <p className="font-serif text-xs text-black/40 italic">Decrypting Page Vectors...</p>
+    <div className="flex flex-col items-center justify-center h-full w-full bg-[#0c0c0e] space-y-4 z-50">
+      <div className="h-8 w-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+      <p className="font-serif text-sm text-amber-500/60 italic animate-pulse tracking-widest">Waking the 3D Physics Engine...</p>
     </div>
   )
 });
@@ -41,10 +34,6 @@ export default function NovelsLibrary() {
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [selectedNovel, setSelectedNovel] = useState<any>(null);
   const [activeReadingNovel, setActiveReadingNovel] = useState<any>(null);
-
-  // PDF Engine States
-  const [currentPageIndex, setCurrentPageIndex] = useState(0);
-  const [totalPages, setTotalPages] = useState(0);
 
   // Novel Creation Form States
   const [title, setTitle] = useState("");
@@ -68,14 +57,6 @@ export default function NovelsLibrary() {
     fetchNovels();
     return () => unsubscribe();
   }, []);
-
-  // Reset page counter when opening or closing a novel
-  useEffect(() => {
-    if (!activeReadingNovel) {
-      setCurrentPageIndex(0);
-      setTotalPages(0);
-    }
-  }, [activeReadingNovel]);
 
   // Omni-Search Evaluator
   useEffect(() => {
@@ -136,9 +117,7 @@ export default function NovelsLibrary() {
     libraryRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  // ---------------------------------------------------------
   // SECURE DELETE FUNCTION (Author Only)
-  // ---------------------------------------------------------
   const handleDeleteNovel = async () => {
     if (!selectedNovel || selectedNovel.author_id !== currentUser?.uid) return;
     
@@ -146,8 +125,8 @@ export default function NovelsLibrary() {
     if (confirmDelete) {
       try {
         await deleteDoc(doc(db, "publications", selectedNovel.id));
-        setSelectedNovel(null); // Close the modal
-        fetchNovels(); // Refresh the library
+        setSelectedNovel(null);
+        fetchNovels();
       } catch (err) {
         console.error("Failed to delete novel:", err);
         alert("An error occurred while deleting the manuscript.");
@@ -252,15 +231,6 @@ export default function NovelsLibrary() {
     } catch (err) {
       console.error("Marginalia save process failure:", err);
     }
-  };
-
-  // PDF Flip Controls
-  const pageFlipForward = () => {
-    if (currentPageIndex < totalPages - 1) setCurrentPageIndex(prev => prev + 1);
-  };
-  
-  const pageFlipBackward = () => {
-    if (currentPageIndex > 0) setCurrentPageIndex(prev => prev - 1);
   };
 
   return (
@@ -490,51 +460,31 @@ export default function NovelsLibrary() {
         </div>
       )}
 
-      {/* 📖 STAGE 2 IMMERSIVE PDF PAGE FLIP VIEWPORT */}
+      {/* 📖 STAGE 2 IMMERSIVE 3D FLIPBOOK VIEWPORT */}
       {activeReadingNovel && (
-        <div className="fixed inset-0 bg-[#0c0c0e] z-50 flex flex-col justify-between select-none animate-fade-in">
-          <header className="border-b border-white/5 bg-black/50 backdrop-blur-md px-6 py-4 flex items-center justify-between">
+        <div className="fixed inset-0 bg-[#0c0c0e] z-50 flex flex-col select-none animate-fade-in">
+          
+          <header className="border-b border-white/5 bg-[#141211]/90 backdrop-blur-md px-4 py-4 md:px-8 flex items-center justify-between z-[110]">
             <button 
               onClick={() => setActiveReadingNovel(null)} 
-              className="flex items-center gap-2 text-xs font-sans text-white/40 hover:text-white transition-all cursor-pointer"
+              className="flex items-center gap-2 text-xs font-sans text-white/50 hover:text-white transition-all cursor-pointer"
             >
-              <X className="h-4 w-4" /> Close Manuscript Frame
+              <X className="h-4 w-4" /> <span className="hidden sm:block">Close Manuscript</span>
             </button>
-            <div className="text-center font-serif text-sm tracking-wide text-[#dfb86c]">
-              {activeReadingNovel.title} <span className="text-white/20 font-sans text-xs px-2">|</span> <span className="text-white/40 text-xs font-sans">Page {currentPageIndex + 1} of {totalPages || "..."}</span>
+            <div className="text-center font-serif text-sm tracking-wide text-amber-500/80 truncate px-4 max-w-[60vw]">
+              {activeReadingNovel.title}
             </div>
-            <div className="w-32 hidden sm:block" />
+            {/* Spacer to keep title centered */}
+            <div className="w-16 hidden sm:block" />
           </header>
 
-          <div className="flex-1 w-full flex items-center justify-center p-4 relative overflow-hidden">
-            <button 
-              onClick={pageFlipBackward}
-              disabled={currentPageIndex === 0}
-              className="absolute left-4 md:left-10 z-20 h-10 w-10 md:h-12 md:w-12 rounded-full border border-white/5 bg-white/5 hover:bg-white/10 text-white flex items-center justify-center transition-all disabled:opacity-5 cursor-pointer disabled:cursor-not-allowed"
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </button>
-
-            {/* FIX: Removed hardcoded aspect ratio to ensure it dynamically scales within the screen height limits */}
-            <div className="relative w-full max-w-[95vw] sm:max-w-[80vw] lg:max-w-[800px] h-[80vh] bg-white rounded-xl shadow-[0_25px_60px_-15px_rgba(0,0,0,0.9)] overflow-hidden flex items-center justify-center p-2 border border-white/10 transition-transform duration-500">
-              <PDFViewer 
-                url={activeReadingNovel.pdf_url} 
-                currentPage={currentPageIndex} 
-                onTotalPages={(total: number) => setTotalPages(total)}
-              />
-            </div>
-
-            <button 
-              onClick={pageFlipForward}
-              disabled={totalPages === 0 || currentPageIndex === totalPages - 1}
-              className="absolute right-4 md:right-10 z-20 h-10 w-10 md:h-12 md:w-12 rounded-full border border-white/5 bg-white/5 hover:bg-white/10 text-white flex items-center justify-center transition-all disabled:opacity-5 cursor-pointer disabled:cursor-not-allowed"
-            >
-              <ChevronRight className="h-5 w-5" />
-            </button>
+          {/* 🚀 THE NEW ENGINE: No manual chevron buttons needed. The engine handles full edge-to-edge touch/click zones automatically. */}
+          <div className="flex-1 w-full relative bg-[#0c0c0e]">
+            <BookReader url={activeReadingNovel.pdf_url} />
           </div>
 
-          <footer className="py-4 bg-black/20 text-center text-[10px] text-white/10 tracking-widest uppercase font-sans border-t border-white/5">
-            Powered by Iru-Bee Client Streaming Layout Core
+          <footer className="absolute bottom-0 w-full py-3 bg-gradient-to-t from-black via-black/80 to-transparent text-center text-[9px] text-white/20 tracking-widest uppercase font-sans z-[110] pointer-events-none">
+            Swipe or Tap Edges to Flip Pages
           </footer>
         </div>
       )}
